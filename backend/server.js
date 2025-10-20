@@ -106,6 +106,8 @@ const LATE = {
 app.get("/api/dashboard", async (req, res) => {
   try {
     const today = new Date().toISOString().split("T")[0];
+
+    // ✅ جلب بيانات الموظفين وسجل الحضور
     const [staffRes, attendanceRes] = await Promise.all([
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
@@ -122,34 +124,54 @@ app.get("/api/dashboard", async (req, res) => {
     const staffRows = staffRes.data.values || [];
     const attendanceRows = attendanceRes.data.values || [];
 
+    // ✅ تعريف الإحصاءات الأساسية
     const stats = {
-      M: { present: 0, absent: 0, late: 0, total: 0 },
-      F: { present: 0, absent: 0, late: 0, total: 0 },
+      M: { present: 0, late: 0, permit: 0, early: 0, absent: 0, total: 0 },
+      F: { present: 0, late: 0, permit: 0, early: 0, absent: 0, total: 0 },
     };
 
+    // ✅ حساب الإجمالي لكل قسم
     staffRows.forEach((s) => {
-      const section = s[4];
+      const section = (s[4] || "").toUpperCase();
       if (stats[section]) stats[section].total++;
     });
 
+    // ✅ استخراج سجلات اليوم فقط
     const todayAttendance = attendanceRows.filter((r) => r[3] && r[3].startsWith(today));
     const attendedToday = new Set();
 
+    // ✅ تحليل السجلات اليومية
     todayAttendance.forEach((r) => {
-      const section = r[2];
+      const section = (r[2] || "").toUpperCase();
       const id = r[0];
+      const status = r[5] || "";
+      const note = r[6] || "";
+
       if (!stats[section]) return;
+
       attendedToday.add(`${section}-${id}`);
-      if (r[5]?.includes("دخول")) stats[section].present++;
-      if (r[6]?.includes("🕓") || r[6]?.includes("تأخر") || r[6]?.includes("تاخر"))
-        stats[section].late++;
+
+      if (status.includes("دخول")) {
+        stats[section].present++;
+        if (note.includes("تأخر") || note.includes("تاخر") || note.includes("🕓")) {
+          stats[section].late++;
+        }
+      } else if (status.includes("استئذان")) {
+        stats[section].permit++;
+      } else if (status.includes("خروج مبكر")) {
+        stats[section].early++;
+      }
     });
 
+    // ✅ حساب الغياب (الإجمالي - باقي الحالات)
     Object.keys(stats).forEach((sec) => {
       const attendedCount = Array.from(attendedToday).filter((x) =>
         x.startsWith(sec + "-")
       ).length;
-      stats[sec].absent = Math.max(0, stats[sec].total - attendedCount);
+      stats[sec].absent = Math.max(
+        0,
+        stats[sec].total - (attendedCount + stats[sec].permit + stats[sec].early)
+      );
     });
 
     res.json(stats);
@@ -191,10 +213,10 @@ app.get("/api/reports", async (req, res) => {
     const attendance = attendanceRows.map((r) => ({
       id: r[0],
       name: r[1],
-      section: r[2],
+      section: (r[2] || "M").toUpperCase(),
       date: r[3],
       time: r[4],
-      type: r[5],
+      type: r[5] || "",
       notes: r[6] || "",
     }));
 
@@ -202,20 +224,20 @@ app.get("/api/reports", async (req, res) => {
     const start = startDate ? new Date(startDate) : new Date(today.setHours(0, 0, 0, 0));
     const end = endDate ? new Date(endDate) : new Date();
 
-       const filteredLogs = attendance.filter((r) => {
-         const logDate = new Date(r.date);
-         const inDateRange = logDate >= start && logDate <= end;
-         const inSection = section === "all" || (r.section || "M").toUpperCase() === section.toUpperCase();
-         return inDateRange && inSection;
-       });
-
+    // ✅ فلترة السجلات حسب التاريخ والقسم
+    const filteredLogs = attendance.filter((r) => {
+      const logDate = new Date(r.date);
+      const inDateRange = logDate >= start && logDate <= end;
+      const inSection = section === "all" || r.section === section.toUpperCase();
+      return inDateRange && inSection;
+    });
 
     const sectionFilteredStaff =
       section === "all" ? staffList : staffList.filter((s) => s.section === section);
 
     let final = [];
 
-    // تقارير الحضور أو التأخر
+    // ✅ تقارير الحضور والتأخر
     if (reportType === "present" || reportType === "late") {
       let relevantLogs = filteredLogs.filter((l) => l.type.includes("دخول"));
       if (reportType === "late") {
@@ -248,7 +270,7 @@ app.get("/api/reports", async (req, res) => {
       });
     }
 
-    // تقارير الغياب
+    // ✅ تقارير الغياب
     else if (reportType === "absent") {
       const allDays = getDateRangeArray(start, end);
       const attendedBy = {};
@@ -278,6 +300,54 @@ app.get("/api/reports", async (req, res) => {
           };
         })
         .filter((r) => !r.notes.includes("لا يوجد"));
+    }
+
+    // ✅ تقارير الاستئذان
+    else if (reportType === "permit") {
+      const relevantLogs = filteredLogs.filter((l) => l.type.includes("استئذان"));
+      const grouped = {};
+      relevantLogs.forEach((l) => {
+        if (!grouped[l.id]) grouped[l.id] = { info: l, dates: [] };
+        grouped[l.id].dates.push(l.date);
+      });
+
+      final = Object.values(grouped).map((g) => {
+        const dates = [...new Set(g.dates)].sort();
+        const displayDates = summarizeDates(dates);
+        return {
+          id: g.info.id,
+          name: g.info.name,
+          section: g.info.section,
+          date: dates[dates.length - 1],
+          time: g.info.time,
+          type: "استئذان",
+          notes: `استأذن في الأيام ${displayDates}`,
+        };
+      });
+    }
+
+    // ✅ تقارير الخروج المبكر
+    else if (reportType === "early") {
+      const relevantLogs = filteredLogs.filter((l) => l.type.includes("خروج مبكر"));
+      const grouped = {};
+      relevantLogs.forEach((l) => {
+        if (!grouped[l.id]) grouped[l.id] = { info: l, dates: [] };
+        grouped[l.id].dates.push(l.date);
+      });
+
+      final = Object.values(grouped).map((g) => {
+        const dates = [...new Set(g.dates)].sort();
+        const displayDates = summarizeDates(dates);
+        return {
+          id: g.info.id,
+          name: g.info.name,
+          section: g.info.section,
+          date: dates[dates.length - 1],
+          time: g.info.time,
+          type: "خروج مبكر",
+          notes: `خرج مبكرًا في الأيام ${displayDates}`,
+        };
+      });
     }
 
     res.json({ success: true, data: final });

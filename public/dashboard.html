@@ -46,7 +46,7 @@
       border-radius: 14px;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
       padding: 15px;
-      width: 220px;
+      width: 230px;
       text-align: center;
     }
     .card h2 {
@@ -60,8 +60,8 @@
       color: #333;
     }
     canvas {
-      max-width: 500px;
-      margin: 10px auto;
+      max-width: 700px;
+      margin: 20px auto;
       display: block;
     }
   </style>
@@ -76,6 +76,8 @@
       <h2>👨‍🏫 الذكور</h2>
       <p>الحضور: <span id="m-present">0</span></p>
       <p>التأخر: <span id="m-late">0</span></p>
+      <p>الاستئذان: <span id="m-permit">0</span></p>
+      <p>الخروج المبكر: <span id="m-early">0</span></p>
       <p>الغياب: <span id="m-absent">0</span></p>
       <p>الإجمالي: <span id="m-total">0</span></p>
     </div>
@@ -84,6 +86,8 @@
       <h2>👩‍🏫 الإناث</h2>
       <p>الحضور: <span id="f-present">0</span></p>
       <p>التأخر: <span id="f-late">0</span></p>
+      <p>الاستئذان: <span id="f-permit">0</span></p>
+      <p>الخروج المبكر: <span id="f-early">0</span></p>
       <p>الغياب: <span id="f-absent">0</span></p>
       <p>الإجمالي: <span id="f-total">0</span></p>
     </div>
@@ -103,30 +107,49 @@
         const res = await fetch("/api/dashboard");
         const data = await res.json();
 
+        // تحديث القيم للذكور
         document.getElementById("m-present").textContent = data.M.present;
         document.getElementById("m-late").textContent = data.M.late;
+        document.getElementById("m-permit").textContent = data.M.permit || 0;
+        document.getElementById("m-early").textContent = data.M.early || 0;
         document.getElementById("m-absent").textContent = data.M.absent;
         document.getElementById("m-total").textContent = data.M.total;
 
+        // تحديث القيم للإناث
         document.getElementById("f-present").textContent = data.F.present;
         document.getElementById("f-late").textContent = data.F.late;
+        document.getElementById("f-permit").textContent = data.F.permit || 0;
+        document.getElementById("f-early").textContent = data.F.early || 0;
         document.getElementById("f-absent").textContent = data.F.absent;
         document.getElementById("f-total").textContent = data.F.total;
 
+        // إعداد الرسم البياني
         const ctx = document.getElementById("attendanceChart").getContext("2d");
         new Chart(ctx, {
           type: "bar",
           data: {
-            labels: ["الحضور", "التأخر", "الغياب"],
+            labels: ["الحضور", "التأخر", "الاستئذان", "الخروج المبكر", "الغياب"],
             datasets: [
               {
                 label: "👨‍🏫 الذكور",
-                data: [data.M.present, data.M.late, data.M.absent],
+                data: [
+                  data.M.present,
+                  data.M.late,
+                  data.M.permit || 0,
+                  data.M.early || 0,
+                  data.M.absent
+                ],
                 backgroundColor: "rgba(54, 162, 235, 0.6)",
               },
               {
                 label: "👩‍🏫 الإناث",
-                data: [data.F.present, data.F.late, data.F.absent],
+                data: [
+                  data.F.present,
+                  data.F.late,
+                  data.F.permit || 0,
+                  data.F.early || 0,
+                  data.F.absent
+                ],
                 backgroundColor: "rgba(255, 99, 132, 0.6)",
               }
             ]
@@ -137,6 +160,12 @@
               title: {
                 display: true,
                 text: "إحصاءات اليوم حسب القسم"
+              }
+            },
+            responsive: true,
+            scales: {
+              y: {
+                beginAtZero: true
               }
             }
           }
