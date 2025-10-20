@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <title>📷 بوابة تسجيل الحضور والانصراف</title>
+  <title>📷 بوابة تسجيل الحضور والانصراف | Attendance Portal</title>
   <link rel="stylesheet" href="css/style.css" />
   <style>
     body {
@@ -20,12 +20,13 @@
     h1 {
       color: #0d47a1;
       margin-bottom: 20px;
+      line-height: 1.5;
     }
 
     input {
-      font-size: 1.5em;
+      font-size: 1.4em;
       padding: 12px 15px;
-      width: 300px;
+      width: 320px;
       margin: 15px 0;
       text-align: center;
       border-radius: 10px;
@@ -39,7 +40,6 @@
     }
 
     button {
-      background-color: #2196f3;
       color: white;
       border: none;
       padding: 10px 25px;
@@ -49,12 +49,8 @@
       margin: 10px;
       transition: 0.3s;
     }
-    button.exit {
-      background-color: #d9534f;
-    }
-    button:hover {
-      opacity: 0.9;
-    }
+
+    button:hover { opacity: 0.9; }
 
     .status {
       margin-top: 25px;
@@ -68,67 +64,78 @@
       margin-top: 40px;
       color: #555;
       font-size: 0.9em;
+      line-height: 1.5;
     }
   </style>
 </head>
 <body>
-  <h1>نظام تسجيل الدخول / الخروج</h1>
+  <h1>نظام تسجيل الدخول والخروج<br><span style="font-size:0.8em;">Attendance & Leave Logging System</span></h1>
 
-  <button id="modeBtn">وضع الدخول</button><br />
-  <input id="barcodeInput" placeholder="مرّر الباركود هنا" autofocus autocomplete="off" />
+  <button id="modeBtn">🔵 وضع الدخول | Check-in Mode</button><br />
+  <input id="barcodeInput" placeholder="مرّر الباركود هنا | Scan Barcode Here" autofocus autocomplete="off" />
   <div class="status" id="status"></div>
 
-<footer>
-  © 2025 - جميع الحقوق محفوظة<br>
-  مجمّع زايد التعليمي - الظيت
-</footer>
+  <footer>
+    © 2025 - جميع الحقوق محفوظة / All Rights Reserved<br>
+    مجمّع زايد التعليمي - الظيت / Zayed Educational Complex - Al Dhait
+  </footer>
+
   <script>
     const modeBtn = document.getElementById("modeBtn");
     const statusDiv = document.getElementById("status");
     const input = document.getElementById("barcodeInput");
 
-    let mode = "دخول"; // الوضع الافتراضي
+    const modes = [
+      { ar: "دخول", en: "Check-in", color: "#2196f3" },
+      { ar: "خروج", en: "Check-out", color: "#d9534f" },
+      { ar: "استئذان", en: "Permission", color: "#ff9800" },
+      { ar: "خروج مبكر", en: "Early Leave", color: "#9c27b0" }
+    ];
 
-    // ✅ تبديل بين الدخول والخروج يدويًا
+    let modeIndex = 0;
+    let mode = modes[modeIndex];
+
+    // ✅ تحديث الزر حسب الوضع الحالي
+    function updateModeButton() {
+      modeBtn.textContent = `🔘 وضع ${mode.ar} | ${mode.en} Mode`;
+      modeBtn.style.backgroundColor = mode.color;
+    }
+
+    // ✅ تبديل الأوضاع بالتتابع
     modeBtn.addEventListener("click", () => {
-      if (mode === "دخول") {
-        mode = "خروج";
-        modeBtn.textContent = "وضع الخروج";
-        modeBtn.classList.add("exit");
-      } else {
-        mode = "دخول";
-        modeBtn.textContent = "وضع الدخول";
-        modeBtn.classList.remove("exit");
-      }
+      modeIndex = (modeIndex + 1) % modes.length;
+      mode = modes[modeIndex];
+      updateModeButton();
       input.focus();
     });
 
-    // ✅ إرسال الطلب عند تمرير الباركود
+    updateModeButton();
+
+    // ✅ عند تمرير الباركود
     input.addEventListener("change", async () => {
       const barcode = input.value.trim();
       if (!barcode) return;
 
       try {
-        const res = await fetch(`/api/scan/${barcode}`);
+        const res = await fetch(`/api/scan/${barcode}?mode=${encodeURIComponent(mode.ar)}`);
         const data = await res.json();
 
         if (res.ok && data.ok) {
-          statusDiv.style.color = mode === "دخول" ? "green" : "red";
-          statusDiv.innerHTML = `✅ ${data.staff.name}<br>${mode} تم بنجاح<br>${data.date} ${data.time}<br>${data.note || ""}`;
+          statusDiv.style.color = "green";
+          statusDiv.innerHTML = `✅ ${data.staff.name}<br>${mode.ar} (${mode.en}) تم بنجاح<br>${data.date} ${data.time}<br>${data.note || ""}`;
         } else {
           statusDiv.style.color = "darkred";
-          statusDiv.textContent = `⚠️ ${data.error || "حدث خطأ أثناء التسجيل"}`;
+          statusDiv.textContent = `⚠️ ${data.error || "حدث خطأ أثناء التسجيل / An error occurred"}`;
         }
       } catch (err) {
         statusDiv.style.color = "darkred";
-        statusDiv.textContent = "⚠️ تعذر الاتصال بالخادم";
+        statusDiv.textContent = "⚠️ تعذر الاتصال بالخادم / Failed to connect to the server";
       }
 
       input.value = "";
       input.focus();
     });
 
-    // إبقاء التركيز على الحقل
     window.addEventListener("click", () => input.focus());
   </script>
 </body>

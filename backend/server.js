@@ -339,16 +339,18 @@ app.get("/api/scan/:barcode", async (req, res) => {
       return res.status(500).json({ error: "Google Sheets not configured" });
 
     const code = req.params.barcode;
+    const mode = req.query.mode || "دخول"; // ← الوضع القادم من الواجهة
     if (!staffCache || staffCache.length === 0) await loadStaffCache();
 
     const staff = findStaffByBarcode(code);
-    if (!staff) return res.status(404).json({ error: "Employee not found" });
+    if (!staff) return res.status(404).json({ error: "الموظف غير موجود" });
 
     const now = dayjs();
     const date = now.format("YYYY-MM-DD");
     const time = now.format("HH:mm:ss");
 
-    const logRows = await readRange("attendance_log!A:G");
+    // قراءة السجلات السابقة لهذا اليوم
+    const logRows = await readRange("attendance_log!A:H");
     const dataRows = logRows.slice(1).map((r) => ({
       id: r[0] || "",
       date: r[3] || "",
@@ -358,10 +360,10 @@ app.get("/api/scan/:barcode", async (req, res) => {
     const todayEntries = dataRows.filter((e) => e.id === staff.id && e.date === date);
     let last = todayEntries.length ? todayEntries[todayEntries.length - 1] : null;
 
-    let status = "دخول";
-    if (last && last.status === "دخول") status = "خروج";
-
+    let status = mode; // ← الوضع المحدد من الواجهة هو الحالة المسجّلة
     let note = "";
+
+    // ⚙️ منطق التأخير فقط لحالة "دخول"
     if (status === "دخول") {
       const sec = (staff.section || "M").toUpperCase();
       const thr = LATE[sec] || LATE.M;
@@ -371,14 +373,22 @@ app.get("/api/scan/:barcode", async (req, res) => {
       if (now.isAfter(cutoff)) note = "🕓 تأخر";
     }
 
+    // ✨ الحالات الأخرى: يمكن وضع ملاحظات خاصة
+    if (status === "استئذان") note = "📋 استئذان رسمي";
+    if (status === "خروج مبكر") note = "⏰ خروج قبل الوقت";
+
+    // حفظ السجل في Google Sheets
     const row = [staff.id, staff.name, staff.section || "", date, time, status, note];
     await appendRow("attendance_log", row);
+
+    // استجابة ناجحة للواجهة
     return res.json({ ok: true, staff, date, time, status, note });
   } catch (err) {
-    console.error("scan error", err);
-    res.status(500).json({ error: "Internal error" });
+    console.error("❌ scan error", err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
   }
 });
+
 
 // ==========================================
 // 🔐 API: تسجيل الدخول
