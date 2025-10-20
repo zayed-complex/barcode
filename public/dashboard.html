@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة التحكم</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: "Tajawal", sans-serif;
+      background-color: #f5f7fa;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    header {
+      background-color: #007bff;
+      color: white;
+      padding: 15px 10px;
+      font-size: 22px;
+      font-weight: bold;
+    }
+    h3 {
+      color: #333;
+      margin-top: 10px;
+      font-size: 16px;
+    }
+    a {
+      color: #007bff;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .stats-container {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      flex-wrap: wrap;
+      margin: 20px auto;
+    }
+    .card {
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      padding: 15px;
+      width: 220px;
+      text-align: center;
+    }
+    .card h2 {
+      font-size: 20px;
+      color: #007bff;
+      margin-bottom: 10px;
+    }
+    .card p {
+      font-size: 14px;
+      margin: 4px 0;
+      color: #333;
+    }
+    canvas {
+      max-width: 500px;
+      margin: 10px auto;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <header>📊 لوحة التحكم</header>
+  <h3 id="today-date"></h3>
+  <a href="reports.html">📋 الانتقال إلى التقارير التفصيلية</a>
+
+  <div class="stats-container">
+    <div class="card">
+      <h2>👨‍🏫 الذكور</h2>
+      <p>الحضور: <span id="m-present">0</span></p>
+      <p>التأخر: <span id="m-late">0</span></p>
+      <p>الغياب: <span id="m-absent">0</span></p>
+      <p>الإجمالي: <span id="m-total">0</span></p>
+    </div>
+
+    <div class="card">
+      <h2>👩‍🏫 الإناث</h2>
+      <p>الحضور: <span id="f-present">0</span></p>
+      <p>التأخر: <span id="f-late">0</span></p>
+      <p>الغياب: <span id="f-absent">0</span></p>
+      <p>الإجمالي: <span id="f-total">0</span></p>
+    </div>
+  </div>
+
+  <canvas id="attendanceChart"></canvas>
+
+  <script>
+    // 🗓️ عرض تاريخ اليوم
+    const today = new Date().toLocaleDateString('ar-EG', {
+      year: 'numeric', month: 'long', day: 'numeric'
+    });
+    document.getElementById("today-date").textContent = `تاريخ اليوم: ${today}`;
+
+    async function loadDashboard() {
+      try {
+        const res = await fetch("/api/dashboard");
+        const data = await res.json();
+
+        document.getElementById("m-present").textContent = data.M.present;
+        document.getElementById("m-late").textContent = data.M.late;
+        document.getElementById("m-absent").textContent = data.M.absent;
+        document.getElementById("m-total").textContent = data.M.total;
+
+        document.getElementById("f-present").textContent = data.F.present;
+        document.getElementById("f-late").textContent = data.F.late;
+        document.getElementById("f-absent").textContent = data.F.absent;
+        document.getElementById("f-total").textContent = data.F.total;
+
+        const ctx = document.getElementById("attendanceChart").getContext("2d");
+        new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: ["الحضور", "التأخر", "الغياب"],
+            datasets: [
+              {
+                label: "👨‍🏫 الذكور",
+                data: [data.M.present, data.M.late, data.M.absent],
+                backgroundColor: "rgba(54, 162, 235, 0.6)",
+              },
+              {
+                label: "👩‍🏫 الإناث",
+                data: [data.F.present, data.F.late, data.F.absent],
+                backgroundColor: "rgba(255, 99, 132, 0.6)",
+              }
+            ]
+          },
+          options: {
+            plugins: {
+              legend: { position: "bottom" },
+              title: {
+                display: true,
+                text: "إحصاءات اليوم حسب القسم"
+              }
+            }
+          }
+        });
+      } catch (err) {
+        alert("حدث خطأ أثناء تحميل البيانات.");
+      }
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>

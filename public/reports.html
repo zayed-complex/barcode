@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>التقارير التفصيلية</title>
+  <style>
+    body {
+      font-family: "Cairo", sans-serif;
+      background-color: #f6f8fa;
+      margin: 0;
+      padding: 0;
+      direction: rtl;
+    }
+
+    header {
+      background-color: #007bff;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-size: 22px;
+      font-weight: bold;
+    }
+
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      background-color: #fff;
+      padding: 15px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    select, input, button {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 15px;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    table {
+      width: 95%;
+      margin: 20px auto;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      text-align: center;
+      padding: 10px;
+      font-size: 15px;
+    }
+
+    th {
+      background-color: #007bff;
+      color: white;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+
+    .status-late {
+      background-color: #fff3cd;
+    }
+    .status-absent {
+      background-color: #f8d7da;
+    }
+    .status-present {
+      background-color: #d4edda;
+    }
+
+    footer {
+      text-align: center;
+      padding: 10px;
+      color: #888;
+    }
+.actions .btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  margin-left: 8px;
+  cursor: pointer;
+  border: none;
+}
+
+.btn-success { background-color: #28a745; color: white; }
+.btn-primary { background-color: #007bff; color: white; }
+
+@media print {
+  .actions, .filters, button {
+    display: none !important;
+  }
+}
+@media print {
+  body {
+    background: white;
+  }
+  table {
+    width: 100%;
+    font-size: 13px;
+  }
+  .actions, .filters, button {
+    display: none !important;
+  }
+}
+
+  </style>
+</head>
+<body>
+  <header>📋 التقارير التفصيلية</header>
+
+  <div class="filters">
+    <label>القسم:
+      <select id="section">
+        <option value="all">الكل</option>
+        <option value="M">الذكور</option>
+        <option value="F">الإناث</option>
+      </select>
+    </label>
+
+    <label>نوع التقرير:
+      <select id="reportType">
+        <option value="present">الحضور</option>
+        <option value="absent">الغياب</option>
+        <option value="late">التأخر</option>
+      </select>
+    </label>
+
+    <label>من:
+      <input type="date" id="startDate">
+    </label>
+
+    <label>إلى:
+      <input type="date" id="endDate">
+    </label>
+
+    <button onclick="loadReports()">عرض التقارير</button>
+  </div>
+  <div class="actions" style="margin:15px auto; text-align:center;">
+
+     <button onclick="exportToExcel()" class="btn btn-success">🧾  Excel</button>
+     <button onclick="window.print()" class="btn btn-primary">🖨️ طباعة</button>
+   </div>
+
+  <table id="reportTable">
+    <thead>
+      <tr>
+        <th>رقم</th>
+        <th>الاسم</th>
+        <th>القسم</th>
+        <th>التاريخ</th>
+        <th>الوقت</th>
+        <th>النوع</th>
+        <th>الملاحظات</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+<footer>
+  © 2025 - جميع الحقوق محفوظة<br>
+  مجمّع زايد التعليمي - الظيت
+</footer>
+  <script>
+    function formatDateInput(date) {
+      return date.toISOString().split("T")[0];
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const today = new Date();
+      document.getElementById("startDate").value = formatDateInput(today);
+      document.getElementById("endDate").value = formatDateInput(today);
+      document.getElementById("section").value = "all";
+      document.getElementById("reportType").value = "present";
+      loadReports();
+    });
+
+    async function loadReports() {
+      const section = document.getElementById("section").value;
+      const reportType = document.getElementById("reportType").value;
+      const startDate = document.getElementById("startDate").value;
+      const endDate = document.getElementById("endDate").value;
+      const tableBody = document.querySelector("#reportTable tbody");
+      tableBody.innerHTML = "<tr><td colspan='7'>جاري تحميل البيانات...</td></tr>";
+
+      try {
+        const res = await fetch(`/api/reports?reportType=${reportType}&section=${section}&startDate=${startDate}&endDate=${endDate}`);
+        const data = await res.json();
+        const rows = data.data || data || [];
+
+        if (!rows.length) {
+          tableBody.innerHTML = "<tr><td colspan='7'>لا توجد بيانات مطابقة للفلتر الحالي.</td></tr>";
+          return;
+        }
+
+        tableBody.innerHTML = "";
+        rows.forEach(r => {
+          const tr = document.createElement("tr");
+          if (r.type?.includes("غياب")) tr.classList.add("status-absent");
+          else if (r.notes?.includes("🕓") || r.notes?.includes("تأخر")) tr.classList.add("status-late");
+          else if (r.type?.includes("دخول")) tr.classList.add("status-present");
+
+          tr.innerHTML = `
+            <td>${r.id || "-"}</td>
+            <td>${r.name || "-"}</td>
+            <td>${r.section || "-"}</td>
+            <td>${r.date || "-"}</td>
+            <td>${r.time || "-"}</td>
+            <td>${r.type || "-"}</td>
+            <td>${r.notes || "-"}</td>
+          `;
+          tableBody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error(err);
+        tableBody.innerHTML = "<tr><td colspan='7' style='color:red;'>حدث خطأ أثناء تحميل البيانات، تحقق من الاتصال بالخادم.</td></tr>";
+      }
+    }
+  </script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<script>
+function exportToExcel() {
+  const table = document.getElementById("reportTable");
+  const wb = XLSX.utils.table_to_book(table, { sheet: "Report" });
+  const now = new Date().toISOString().split("T")[0];
+  XLSX.writeFile(wb, `attendance_report_${now}.xlsx`);
+}
+</script>
+
+
+</body>
+</html>

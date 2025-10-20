@@ -1,0 +1,21 @@
+{
+  "name": "barcode-attendance",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.3",
+    "cors": "^2.8.5",
+    "dayjs": "^1.11.18",
+    "express": "^4.21.2",
+    "express-session": "^1.18.2",
+    "googleapis": "^133.0.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
