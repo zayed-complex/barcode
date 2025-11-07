@@ -12,8 +12,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../public")));
 
-const PORT = 5000;
-
 // ==========================================
 // 🔑 إعداد Google Sheets
 // ==========================================
@@ -25,11 +23,18 @@ let staffCache = [];
 async function authorize() {
   const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
 
+<<<<<<< HEAD
 const auth = new google.auth.GoogleAuth({
   credentials,
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 
+=======
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+  });
+>>>>>>> dbcbb03 (time)
 
   return auth.getClient();
 }
@@ -44,10 +49,8 @@ async function initSheets() {
     console.error("❌ Failed to init Sheets client:", err);
   }
 }
-
 initSheets();
 
-// إنشاء مثيل sheets
 const sheets = google.sheets({ version: "v4" });
 
 // ==========================================
@@ -415,7 +418,8 @@ app.get("/api/scan/:barcode", async (req, res) => {
     const staff = findStaffByBarcode(code);
     if (!staff) return res.status(404).json({ error: "الموظف غير موجود" });
 
-    const now = dayjs();
+    // ✅ استخدم توقيت الإمارات (GMT+4)
+    const now = dayjs().add(4, "hour");
     const date = now.format("YYYY-MM-DD");
     const time = now.format("HH:mm:ss");
 
@@ -486,6 +490,7 @@ app.get("/", (req, res) => {
 // ==========================================
 // 🚀 تشغيل الخادم
 // ==========================================
-app.listen(PORT, () => {
-  console.log(`✅ الخادم يعمل على: http://localhost:${PORT}`);
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ الخادم يعمل على المنفذ: ${PORT}`);
 });
